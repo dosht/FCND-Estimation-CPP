@@ -100,13 +100,17 @@ void QuadEstimatorEKF::UpdateFromIMU(V3F accel, V3F gyro)
 //  // normalize yaw to -pi .. pi
 //  if (ekfState(6) > F_PI) ekfState(6) -= 2.f*F_PI;
 //  if (ekfState(6) < -F_PI) ekfState(6) += 2.f*F_PI;
-
-  Quaternion<float> quaternion = Quaternion<float>::FromEuler123_RPY(rollEst, pitchEst, ekfState(6));
-  quaternion.IntegrateBodyRate(gyro, dtIMU);
   
-  float predictedPitch = quaternion.Pitch();
-  float predictedRoll = quaternion.Roll();
-  ekfState(6) = quaternion.Yaw();
+  //////////////////////////////////////////////////////////////////////////////
+
+  // qtBar = dq * qt | dq: messurement quatrenion, qt: state quatrenion
+  
+  Quaternion<float> qt = Quaternion<float>::FromEuler123_RPY(rollEst, pitchEst, ekfState(6));
+  Quaternion<float> qtBar = qt.IntegrateBodyRate(gyro, dtIMU);
+  
+  float predictedPitch = qtBar.Pitch();
+  float predictedRoll = qtBar.Roll();
+  ekfState(6) = qtBar.Yaw();
   
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -168,8 +172,18 @@ VectorXf QuadEstimatorEKF::PredictState(VectorXf curState, float dt, V3F accel, 
   Quaternion<float> attitude = Quaternion<float>::FromEuler123_RPY(rollEst, pitchEst, curState(6));
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
+  V3F absoluteAccel = V3F(accel.x, accel.y, accel.z - 9.81);  // remove gravity
+  V3F accelI = attitude.Rotate_BtoI(absoluteAccel);
+  // predictedVelocity = current velocity + current acceleration * dt
+  predictedState(3) = curState(3) + accelI.x * dt;
+  predictedState(4) = curState(4) + accelI.y * dt;
+  predictedState(5) = curState(5) + accelI.z * dt;
 
-
+  // predictedPosition = current position + current velocity * dt
+  predictedState(0) = curState(0) + curState(3) * dt;
+  predictedState(1) = curState(1) + curState(4) * dt;
+  predictedState(2) = curState(2) + curState(5) * dt;
+  
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   return predictedState;
@@ -179,7 +193,7 @@ MatrixXf QuadEstimatorEKF::GetRbgPrime(float roll, float pitch, float yaw)
 {
   // first, figure out the Rbg_prime
   MatrixXf RbgPrime(3, 3);
-  RbgPrime.setZero();
+//  RbgPrime.setZero();
 
   // Return the partial derivative of the Rbg rotation matrix with respect to yaw. We call this RbgPrime.
   // INPUTS: 
@@ -196,7 +210,14 @@ MatrixXf QuadEstimatorEKF::GetRbgPrime(float roll, float pitch, float yaw)
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-
+  float cosPhi   = cos(roll),  sinPhi   = sin(roll);
+  float cosTheta = cos(pitch), sinTheta = sin(pitch);
+  float cosPsi   = cos(yaw),   sinPsi   = sin(yaw);
+  
+  RbgPrime << -cosTheta*sinPsi, -sinPhi*sinTheta*sinPsi-cosPhi*cosPsi, -cosPhi*sinTheta*sinPsi-sinPhi*cosPsi,
+              cosTheta*cosPsi,  sinPhi*sinTheta*cosPsi-cosPhi*sinPsi,  cosPhi*sinTheta*cosPsi+sinPhi*sinPsi,
+              0,                0,                                     0;
+  
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   return RbgPrime;
@@ -238,10 +259,21 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
 
   // we've created an empty Jacobian for you, currently simply set to identity
   MatrixXf gPrime(QUAD_EKF_NUM_STATES, QUAD_EKF_NUM_STATES);
-  gPrime.setIdentity();
+//  gPrime.setIdentity();
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
+  VectorXf ut_dt(3);
+  for (int i = 0; i < 3; i++) ut_dt(i) = accel[i] * dt;
+  auto Rbg_prime_ut_dt = RbgPrime * ut_dt;
+  
+  gPrime << 1,  0,  0,  dt, 0,  0,  0,
+            0,  1,  0,  0,  dt, 0,  0,
+            0,  0,  1,  0,  0,  dt,  0,
+            0,  0,  1,  0,  0,  0,  Rbg_prime_ut_dt(0),
+            0,  0,  0,  1,  0,  0,  Rbg_prime_ut_dt(1),
+            0,  0,  0,  0,  1,  0,  Rbg_prime_ut_dt(2),
+            0,  0,  0,  0,  0,  0,  1;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 

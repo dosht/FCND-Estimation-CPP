@@ -265,6 +265,7 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
 
   VectorXf ut_dt(3);
   for (int i = 0; i < 3; i++) ut_dt(i) = accel[i] * dt;
+  RbgPrime.transposeInPlace();
   auto Rbg_prime_ut_dt = RbgPrime * ut_dt;
   
   gPrime << 1,  0,  0,  dt, 0,  0,  0,
@@ -275,6 +276,7 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
             0,  0,  0,  0,  1,  0,  Rbg_prime_ut_dt(2),
             0,  0,  0,  0,  0,  0,  1;
 
+  ekfCov = gPrime * ekfCov * gPrime.transpose() + Q;
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   ekfState = newState;

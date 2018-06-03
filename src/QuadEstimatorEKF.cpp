@@ -119,8 +119,8 @@ void QuadEstimatorEKF::UpdateFromIMU(V3F accel, V3F gyro)
   accelPitch = atan2f(-accel.x, 9.81f);
 
   // FUSE INTEGRATION AND UPDATE
-  rollEst = attitudeTau / (attitudeTau + dtIMU) * (predictedRoll)+dtIMU / (attitudeTau + dtIMU) * accelRoll;
-  pitchEst = attitudeTau / (attitudeTau + dtIMU) * (predictedPitch)+dtIMU / (attitudeTau + dtIMU) * accelPitch;
+  rollEst = attitudeTau / (attitudeTau + dtIMU) * (predictedRoll) + dtIMU / (attitudeTau + dtIMU) * accelRoll;
+  pitchEst = attitudeTau / (attitudeTau + dtIMU) * (predictedPitch) + dtIMU / (attitudeTau + dtIMU) * accelPitch;
 
   lastGyro = gyro;
 }
@@ -172,18 +172,21 @@ VectorXf QuadEstimatorEKF::PredictState(VectorXf curState, float dt, V3F accel, 
   Quaternion<float> attitude = Quaternion<float>::FromEuler123_RPY(rollEst, pitchEst, curState(6));
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
-  V3F absoluteAccel = V3F(accel.x, accel.y, accel.z - 9.81);  // remove gravity
-  V3F accelI = attitude.Rotate_BtoI(absoluteAccel);
-  // predictedVelocity = current velocity + current acceleration * dt
-  predictedState(3) = curState(3) + accelI.x * dt;
-  predictedState(4) = curState(4) + accelI.y * dt;
-  predictedState(5) = curState(5) + accelI.z * dt;
-
-  // predictedPosition = current position + current velocity * dt
-  predictedState(0) = curState(0) + curState(3) * dt;
-  predictedState(1) = curState(1) + curState(4) * dt;
-  predictedState(2) = curState(2) + curState(5) * dt;
+  float x, y, z, xDot, yDot, zDot, psi;
   
+  x = predictedState[0] + predictedState[3]*dt;
+  y = predictedState[1] + predictedState[4]*dt;
+  z = predictedState[2] + predictedState[5]*dt;
+  
+  V3F accelI = attitude.Rotate_BtoI(accel);
+  
+  xDot = predictedState[3] + accelI[0]*dt;
+  yDot = predictedState[4] + accelI[1]*dt;
+  zDot = predictedState[5] + (accelI[2] - 9.81f) * dt;
+  
+  psi = predictedState[6];
+  
+  predictedState << x, y, z, xDot, yDot, zDot, psi;
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   return predictedState;
@@ -217,7 +220,6 @@ MatrixXf QuadEstimatorEKF::GetRbgPrime(float roll, float pitch, float yaw)
   RbgPrime << -cosTheta*sinPsi, -sinPhi*sinTheta*sinPsi-cosPhi*cosPsi, -cosPhi*sinTheta*sinPsi-sinPhi*cosPsi,
               cosTheta*cosPsi,  sinPhi*sinTheta*cosPsi-cosPhi*sinPsi,  cosPhi*sinTheta*cosPsi+sinPhi*sinPsi,
               0,                0,                                     0;
-  
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   return RbgPrime;
@@ -262,7 +264,6 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
 //  gPrime.setIdentity();
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
-
   VectorXf ut_dt(3);
   for (int i = 0; i < 3; i++) ut_dt(i) = accel[i] * dt;
   RbgPrime.transposeInPlace();
@@ -271,9 +272,9 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
   gPrime << 1,  0,  0,  dt, 0,  0,  0,
             0,  1,  0,  0,  dt, 0,  0,
             0,  0,  1,  0,  0,  dt,  0,
-            0,  0,  1,  0,  0,  0,  Rbg_prime_ut_dt(0),
-            0,  0,  0,  1,  0,  0,  Rbg_prime_ut_dt(1),
-            0,  0,  0,  0,  1,  0,  Rbg_prime_ut_dt(2),
+            0,  0,  0,  1,  0,  0,  Rbg_prime_ut_dt(0),
+            0,  0,  0,  0,  1,  0,  Rbg_prime_ut_dt(1),
+            0,  0,  0,  0,  0,  1,  Rbg_prime_ut_dt(2),
             0,  0,  0,  0,  0,  0,  1;
 
   ekfCov = gPrime * ekfCov * gPrime.transpose() + Q;
@@ -301,6 +302,9 @@ void QuadEstimatorEKF::UpdateFromGPS(V3F pos, V3F vel)
   //  - this is a very simple update
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
+  for(int i=0; i<6; i++) hPrime(i,i) = 1;
+  zFromX = hPrime * ekfState;
+  
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
   Update(z, hPrime, R_GPS, zFromX);

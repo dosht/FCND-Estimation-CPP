@@ -23,6 +23,7 @@ void BaseController::Init()
   Ixx = config->Get(_config+".Ixx", 0.001f);
   Iyy = config->Get(_config + ".Iyy", 0.001f);
   Izz = config->Get(_config + ".Izz", 0.002f);
+  Ixyz = V3F(Ixx, Iyy, Izz);
   kappa = config->Get(_config + ".kappa", 0.01f);
 
   trajectory.Clear();

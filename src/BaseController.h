@@ -39,6 +39,7 @@ public:
   float mass; // mass
   float L; // length of arm from centre of quadrocopter to motor
   float Ixx, Iyy, Izz; // mass moment of inertia / second moment of inertia
+  V3F Ixyz; // Moment of inertia in 3 directions
   float kappa; // torque (Nm) produced by motor per N of thrust produced
 
   // controller input (reference state)

@@ -394,10 +394,10 @@ public:
 		const float q = -half_dt*pqr[1];
 		const float r = -half_dt*pqr[2];
 
-		const float qdot0 =         -p*_q[1] -q*_q[2] -r*_q[3];
-		const float qdot1 = p*_q[0]          +r*_q[2] -q*_q[3];
-		const float qdot2 = q*_q[0] -r*_q[1]          +p*_q[3];
-		const float qdot3 = r*_q[0] +q*_q[1] -p*_q[2]         ;
+		const float qdot0 = -p*_q[1] -q*_q[2] -r*_q[3];
+		const float qdot1 =  p*_q[0] +r*_q[2] -q*_q[3];
+		const float qdot2 =  q*_q[0] -r*_q[1] +p*_q[3];
+		const float qdot3 =  r*_q[0] +q*_q[1] -p*_q[2];
 
 		return Quaternion(_q[0]-qdot0,_q[1]-qdot1,_q[2]-qdot2,_q[3]-qdot3).Normalise();
   }

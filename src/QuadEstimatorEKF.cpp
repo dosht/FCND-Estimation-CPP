@@ -103,7 +103,7 @@ void QuadEstimatorEKF::UpdateFromIMU(V3F accel, V3F gyro)
   
   //////////////////////////////////////////////////////////////////////////////
 
-  // qtBar = dq * qt | dq: messurement quatrenion, qt: state quatrenion
+  // qtBar = dq * (qt*dtIMU) | dq: messurement quatrenion, qt: current body rate quatrenion
   
   Quaternion<float> qt = Quaternion<float>::FromEuler123_RPY(rollEst, pitchEst, ekfState(6));
   Quaternion<float> qtBar = qt.IntegrateBodyRate(gyro, dtIMU);
@@ -319,7 +319,7 @@ void QuadEstimatorEKF::UpdateFromMag(float magYaw)
   hPrime.setZero();
 
   // MAGNETOMETER UPDATE
-  // Hints: 
+  // Hints:
   //  - Your current estimated yaw can be found in the state vector: ekfState(6)
   //  - Make sure to normalize the difference between your measured and estimated yaw
   //    (you don't want to update your yaw the long way around the circle)
